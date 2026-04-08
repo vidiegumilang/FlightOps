@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Home, Calendar, Users, UserCheck, Plane, Layers, LogOut, BookOpen, MessageSquare, Megaphone, BarChart3 } from 'lucide-react';
+import { Home, Calendar, Users, UserCheck, Plane, Layers, LogOut, BookOpen, MessageSquare, Megaphone, BarChart3, GraduationCap, PieChart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
@@ -27,6 +27,8 @@ export const Sidebar = () => {
     { path: '/flight-notes', icon: MessageSquare, label: 'Flight Notes' },
     { path: '/announcements', icon: Megaphone, label: 'Announcements' },
     { path: '/progress', icon: BarChart3, label: 'Progress' },
+    { path: '/e-learning', icon: GraduationCap, label: 'E-Learning' },
+    { path: '/recap', icon: PieChart, label: 'Recap & OER' },
   ];
 
   return (

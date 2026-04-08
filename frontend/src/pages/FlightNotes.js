@@ -14,11 +14,24 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
 const RATING_COLORS = {
-  excellent: 'bg-green-100 text-green-700',
-  satisfactory: 'bg-blue-100 text-blue-700',
-  'needs improvement': 'bg-yellow-100 text-yellow-700',
-  unsatisfactory: 'bg-red-100 text-red-700',
+  'above_average': 'bg-green-100 text-green-700',
+  'average': 'bg-blue-100 text-blue-700',
+  'below_average': 'bg-yellow-100 text-yellow-700',
+  'unsatisfactory': 'bg-red-100 text-red-700',
 };
+
+const RATING_LABELS = {
+  'above_average': 'Above Average',
+  'average': 'Average',
+  'below_average': 'Below Average',
+  'unsatisfactory': 'Unsatisfactory',
+};
+
+const STAGE_TYPES = [
+  'Dual Visual', 'Solo Visual', 'Dual Instrument', 'Solo Instrument',
+  'Dual Night', 'Solo Night', 'Dual Cross Country', 'Solo Cross Country',
+  'Simulator', 'Check Ride',
+];
 
 export default function FlightNotes() {
   const { user } = useAuth();
@@ -29,7 +42,7 @@ export default function FlightNotes() {
   const [loading, setLoading] = useState(false);
   const [filterStudent, setFilterStudent] = useState('all');
   const [formData, setFormData] = useState({
-    student_id: '', student_name: '', exercise: '', stage_name: '', note: '', rating: '', date: new Date().toISOString().split('T')[0],
+    student_id: '', student_name: '', exercise: '', stage_name: '', stage_type: '', note: '', rating: '', date: new Date().toISOString().split('T')[0],
   });
 
   useEffect(() => { fetchData(); }, [filterStudent]);
@@ -59,7 +72,7 @@ export default function FlightNotes() {
       toast.success('Flight note added');
       setIsDialogOpen(false);
       fetchData();
-      setFormData({ student_id: '', student_name: '', exercise: '', stage_name: '', note: '', rating: '', date: new Date().toISOString().split('T')[0] });
+      setFormData({ student_id: '', student_name: '', exercise: '', stage_name: '', stage_type: '', note: '', rating: '', date: new Date().toISOString().split('T')[0] });
     } catch (err) { toast.error(formatApiErrorDetail(err.response?.data?.detail)); }
     finally { setLoading(false); }
   };
@@ -119,12 +132,21 @@ export default function FlightNotes() {
                   <div>
                     <Label className="text-xs">Rating</Label>
                     <Select value={formData.rating} onValueChange={v => setFormData({ ...formData, rating: v })}>
-                      <SelectTrigger data-testid="note-rating-select" className="mt-1"><SelectValue placeholder="Select rating" /></SelectTrigger>
+                      <SelectTrigger data-testid="note-rating-select" className="mt-1"><SelectValue placeholder="Pilih rating" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="excellent">Excellent</SelectItem>
-                        <SelectItem value="satisfactory">Satisfactory</SelectItem>
-                        <SelectItem value="needs improvement">Needs Improvement</SelectItem>
+                        <SelectItem value="above_average">Above Average</SelectItem>
+                        <SelectItem value="average">Average</SelectItem>
+                        <SelectItem value="below_average">Below Average</SelectItem>
                         <SelectItem value="unsatisfactory">Unsatisfactory</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tipe Stage</Label>
+                    <Select value={formData.stage_type} onValueChange={v => setFormData({ ...formData, stage_type: v })}>
+                      <SelectTrigger data-testid="note-stage-type-select" className="mt-1"><SelectValue placeholder="Pilih tipe" /></SelectTrigger>
+                      <SelectContent>
+                        {STAGE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -166,7 +188,8 @@ export default function FlightNotes() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-[#0B192C]">{note.student_name}</span>
                         <Badge className="bg-slate-100 text-slate-600 text-xs">{note.stage_name} - {note.exercise}</Badge>
-                        {note.rating && <Badge className={`text-xs ${RATING_COLORS[note.rating] || 'bg-slate-100 text-slate-600'}`}>{note.rating}</Badge>}
+                        {note.stage_type && <Badge className="bg-indigo-100 text-indigo-700 text-xs">{note.stage_type}</Badge>}
+                        {note.rating && <Badge className={`text-xs ${RATING_COLORS[note.rating] || 'bg-slate-100 text-slate-600'}`}>{RATING_LABELS[note.rating] || note.rating}</Badge>}
                       </div>
                       <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{note.note}</p>
                       <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">

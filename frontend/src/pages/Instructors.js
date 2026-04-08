@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,10 +21,8 @@ export default function Instructors() {
   const [editingId, setEditingId] = useState(null);
 
   const [formData, setFormData] = useState({
-    name: '',
-    callsign: '',
-    license_expiry: '',
-    phone: '',
+    name: '', callsign: '', cfi_expiry: '', loa_status: '', loa_expiry: '',
+    medical_expiry: '', email: '', phone: '', duty_hours: '0:00',
   });
 
   useEffect(() => {
@@ -76,10 +76,11 @@ export default function Instructors() {
   const handleEdit = (instructor) => {
     setEditingId(instructor.id);
     setFormData({
-      name: instructor.name,
-      callsign: instructor.callsign,
-      license_expiry: instructor.license_expiry,
-      phone: instructor.phone || '',
+      name: instructor.name || '', callsign: instructor.callsign || '',
+      cfi_expiry: instructor.cfi_expiry || '', loa_status: instructor.loa_status || '',
+      loa_expiry: instructor.loa_expiry || '', medical_expiry: instructor.medical_expiry || '',
+      email: instructor.email || '', phone: instructor.phone || '',
+      duty_hours: instructor.duty_hours || '0:00',
     });
     setIsDialogOpen(true);
   };
@@ -104,7 +105,7 @@ export default function Instructors() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', callsign: '', license_expiry: '', phone: '' });
+    setFormData({ name: '', callsign: '', cfi_expiry: '', loa_status: '', loa_expiry: '', medical_expiry: '', email: '', phone: '', duty_hours: '0:00' });
     setEditingId(null);
   };
 
@@ -179,73 +180,70 @@ export default function Instructors() {
                     <DialogHeader>
                       <DialogTitle>{editingId ? 'Edit Instructor' : 'Create New Instructor'}</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                      <div>
-                        <Label htmlFor="name">Name</Label>
-                        <Input
-                          id="name"
-                          data-testid="instructor-name-input"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          required
-                          className="mt-1"
-                          placeholder="John Doe"
-                        />
+                    <form onSubmit={handleSubmit} className="space-y-3 mt-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Nama</Label>
+                          <Input data-testid="instructor-name-input" value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })} required className="mt-1" placeholder="Nama lengkap" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Callsign</Label>
+                          <Input data-testid="instructor-callsign-input" value={formData.callsign}
+                            onChange={e => setFormData({ ...formData, callsign: e.target.value })} required className="mt-1" placeholder="e.g. RA" />
+                        </div>
                       </div>
-
-                      <div>
-                        <Label htmlFor="callsign">Callsign</Label>
-                        <Input
-                          id="callsign"
-                          data-testid="instructor-callsign-input"
-                          value={formData.callsign}
-                          onChange={(e) => setFormData({ ...formData, callsign: e.target.value })}
-                          required
-                          className="mt-1"
-                          placeholder="ALPHA1"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">CFI Expiry</Label>
+                          <Input type="date" data-testid="instructor-cfi-input" value={formData.cfi_expiry}
+                            onChange={e => setFormData({ ...formData, cfi_expiry: e.target.value })} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Medical Expiry</Label>
+                          <Input type="date" data-testid="instructor-medical-input" value={formData.medical_expiry}
+                            onChange={e => setFormData({ ...formData, medical_expiry: e.target.value })} className="mt-1" />
+                        </div>
                       </div>
-
-                      <div>
-                        <Label htmlFor="license_expiry">License Expiry</Label>
-                        <Input
-                          id="license_expiry"
-                          type="date"
-                          data-testid="instructor-license-input"
-                          value={formData.license_expiry}
-                          onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
-                          required
-                          className="mt-1"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">LOA Status</Label>
+                          <Select value={formData.loa_status} onValueChange={v => setFormData({ ...formData, loa_status: v })}>
+                            <SelectTrigger data-testid="instructor-loa-status" className="mt-1"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                              <SelectItem value="expired">Expired</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">LOA Expiry</Label>
+                          <Input type="date" data-testid="instructor-loa-expiry-input" value={formData.loa_expiry}
+                            onChange={e => setFormData({ ...formData, loa_expiry: e.target.value })} className="mt-1" />
+                        </div>
                       </div>
-
-                      <div>
-                        <Label htmlFor="phone">Phone (WhatsApp)</Label>
-                        <Input
-                          id="phone"
-                          data-testid="instructor-phone-input"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="mt-1"
-                          placeholder="628123456789"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Email</Label>
+                          <Input type="email" data-testid="instructor-email-input" value={formData.email}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })} className="mt-1" placeholder="email@domain.com" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Phone (WhatsApp)</Label>
+                          <Input data-testid="instructor-phone-input" value={formData.phone}
+                            onChange={e => setFormData({ ...formData, phone: e.target.value })} className="mt-1" placeholder="628xxxxx" />
+                        </div>
                       </div>
-
+                      <div>
+                        <Label className="text-xs">Duty Hours</Label>
+                        <Input data-testid="instructor-duty-hours-input" value={formData.duty_hours}
+                          onChange={e => setFormData({ ...formData, duty_hours: e.target.value })} className="mt-1" placeholder="0:00" />
+                      </div>
                       <div className="flex gap-3 pt-2">
-                        <Button
-                          type="button"
-                          onClick={() => setIsDialogOpen(false)}
-                          className="flex-1 border border-slate-200 text-[#0B192C] hover:bg-slate-50 bg-white"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          data-testid="instructor-submit-button"
-                          disabled={loading}
-                          className="flex-1 bg-[#F4A261] text-white hover:bg-[#E78A43]"
-                        >
-                          {loading ? (editingId ? 'Updating...' : 'Creating...') : editingId ? 'Update' : 'Create'}
+                        <Button type="button" onClick={() => setIsDialogOpen(false)} className="flex-1 border border-slate-200 text-[#0B192C] hover:bg-slate-50 bg-white">Cancel</Button>
+                        <Button type="submit" data-testid="instructor-submit-button" disabled={loading} className="flex-1 bg-[#F4A261] text-white hover:bg-[#E78A43]">
+                          {loading ? 'Saving...' : editingId ? 'Update' : 'Create'}
                         </Button>
                       </div>
                     </form>
@@ -267,62 +265,40 @@ export default function Instructors() {
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">
-                      Callsign
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">
-                      License Expiry
-                    </th>
-                    {(canEdit || canDelete) && (
-                      <th className="px-6 py-3 text-right text-xs font-semibold text-[#0B192C] uppercase tracking-wider">
-                        Actions
-                      </th>
-                    )}
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Nama</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Callsign</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">CFI Exp</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">LOA</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Medical Exp</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Duty Hrs</th>
+                    {(canEdit || canDelete) && <th className="px-4 py-3 text-right text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
                   {instructors.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                        No instructors found
+                    <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-500">No instructors found</td></tr>
+                  ) : instructors.map(instructor => (
+                    <tr key={instructor.id} className="hover:bg-slate-50 transition-colors" data-testid="instructor-row">
+                      <td className="px-4 py-3 text-sm text-[#0B192C] font-medium">{instructor.name}</td>
+                      <td className="px-4 py-3"><Badge className="bg-[#E0F2FE] text-[#0284C7]">{instructor.callsign}</Badge></td>
+                      <td className="px-4 py-3 text-sm text-[#0B192C]">{instructor.cfi_expiry || '-'}</td>
+                      <td className="px-4 py-3">
+                        <Badge className={instructor.loa_status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}>
+                          {instructor.loa_status || '-'}
+                        </Badge>
                       </td>
+                      <td className="px-4 py-3 text-sm text-[#0B192C]">{instructor.medical_expiry || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-[#0B192C]">{instructor.duty_hours || '0:00'}</td>
+                      {(canEdit || canDelete) && (
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            {canEdit && <button onClick={() => handleEdit(instructor)} data-testid="edit-instructor-button" className="p-2 text-[#F4A261] hover:bg-slate-100 rounded-lg"><Edit size={16} /></button>}
+                            {canDelete && <button onClick={() => handleDelete(instructor.id)} data-testid="delete-instructor-button" className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>}
+                          </div>
+                        </td>
+                      )}
                     </tr>
-                  ) : (
-                    instructors.map((instructor) => (
-                      <tr key={instructor.id} className="hover:bg-slate-50 transition-colors" data-testid="instructor-row">
-                        <td className="px-6 py-4 text-sm text-[#0B192C] font-medium">{instructor.name}</td>
-                        <td className="px-6 py-4 text-sm text-[#0B192C]">{instructor.callsign}</td>
-                        <td className="px-6 py-4 text-sm text-[#0B192C]">{instructor.license_expiry}</td>
-                        {(canEdit || canDelete) && (
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              {canEdit && (
-                                <button
-                                  onClick={() => handleEdit(instructor)}
-                                  data-testid="edit-instructor-button"
-                                  className="p-2 text-[#F4A261] hover:bg-slate-100 rounded-lg transition-colors"
-                                >
-                                  <Edit size={16} />
-                                </button>
-                              )}
-                              {canDelete && (
-                                <button
-                                  onClick={() => handleDelete(instructor.id)}
-                                  data-testid="delete-instructor-button"
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>

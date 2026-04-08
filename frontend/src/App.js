@@ -15,6 +15,8 @@ import Courses from './pages/Courses';
 import FlightNotes from './pages/FlightNotes';
 import Announcements from './pages/Announcements';
 import ProgressTracker from './pages/ProgressTracker';
+import ELearning from './pages/ELearning';
+import RecapOER from './pages/RecapOER';
 
 function App() {
   return (
@@ -33,6 +35,8 @@ function App() {
           <Route path="/flight-notes" element={<ProtectedRoute><FlightNotes /></ProtectedRoute>} />
           <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
           <Route path="/progress" element={<ProtectedRoute><ProgressTracker /></ProtectedRoute>} />
+          <Route path="/e-learning" element={<ProtectedRoute><ELearning /></ProtectedRoute>} />
+          <Route path="/recap" element={<ProtectedRoute><RecapOER /></ProtectedRoute>} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
         <Toaster position="top-right" />

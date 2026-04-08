@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 
@@ -21,11 +21,12 @@ const STAGE_COLORS = {
 function getExerciseStage(exercise) {
   if (!exercise) return null;
   const ex = exercise.toUpperCase();
-  if (ex.startsWith('CC')) return 'FIC';
-  if (ex.startsWith('A')) return 'PPL';
-  if (ex.startsWith('B')) return 'CPL';
-  if (ex.startsWith('C')) return 'IR';
-  if (ex.startsWith('D')) return 'ME';
+  if (ex.startsWith('ME')) return 'ME';
+  if (ex.startsWith('FIC')) return 'FIC';
+  if (ex.startsWith('V') && !ex.startsWith('VC')) return 'PPL';
+  if (ex.startsWith('VC') || ex.startsWith('IC') || ex.startsWith('BC') || ex.startsWith('DC') || ex.startsWith('EC') || ex.startsWith('FC') || ex.startsWith('RC')) return 'CPL';
+  if (ex.startsWith('CI') || ex.startsWith('II') || ex.startsWith('RI') || ex.startsWith('DI') || ex.startsWith('FI')) return 'IR';
+  if (ex.startsWith('A') || ex.startsWith('B') || ex.startsWith('C') || ex.startsWith('D') || ex.startsWith('E') || ex.startsWith('F') || ex.startsWith('R')) return 'PPL';
   return null;
 }
 
@@ -36,6 +37,7 @@ export default function ScheduleBoard() {
   const [instructors, setInstructors] = useState([]);
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [remarkOptions, setRemarkOptions] = useState([]);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [cellDialog, setCellDialog] = useState(null);
   const [waDialog, setWaDialog] = useState(null);
@@ -57,13 +59,14 @@ export default function ScheduleBoard() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [schRes, perRes, acRes, instrRes, studRes, courseRes] = await Promise.all([
+      const [schRes, perRes, acRes, instrRes, studRes, courseRes, rmkRes] = await Promise.all([
         api.get(`/schedules?date=${selectedDate}`),
         api.get('/periods'),
         api.get('/aircraft'),
         api.get('/instructors'),
         api.get('/students'),
         api.get('/courses'),
+        api.get('/remarks'),
       ]);
       setSchedules(schRes.data);
       setPeriods(perRes.data);
@@ -71,6 +74,7 @@ export default function ScheduleBoard() {
       setInstructors(instrRes.data);
       setStudents(studRes.data);
       setCourses(courseRes.data);
+      setRemarkOptions(rmkRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -100,14 +104,15 @@ export default function ScheduleBoard() {
   const saveCellData = async () => {
     if (!cellDialog) return;
     try {
+      const payload = { ...cellForm, remarks: cellForm.remarks === '__empty__' ? '' : cellForm.remarks };
       if (cellDialog.existing) {
-        await api.put(`/schedules/${cellDialog.existing.id}`, cellForm);
+        await api.put(`/schedules/${cellDialog.existing.id}`, payload);
       } else {
         await api.post('/schedules', {
           date: selectedDate,
           period_number: cellDialog.period.number,
           aircraft_id: cellDialog.aircraft.id,
-          ...cellForm,
+          ...payload,
         });
       }
       toast.success('Schedule saved');
@@ -155,8 +160,61 @@ export default function ScheduleBoard() {
     }
   };
 
+  // Group students by course for dropdown
+  const studentsByCourse = (() => {
+    const courseMap = {};
+    const noCourse = [];
+    const courseNames = {};
+    for (const c of courses) courseNames[c.id] = c.name;
+    for (const s of students) {
+      if (!s.name) continue;
+      if (s.course_id && courseNames[s.course_id]) {
+        if (!courseMap[s.course_id]) courseMap[s.course_id] = [];
+        courseMap[s.course_id].push(s);
+      } else {
+        noCourse.push(s);
+      }
+    }
+    const groups = [];
+    for (const [cid, studs] of Object.entries(courseMap)) {
+      groups.push({ label: courseNames[cid], students: studs });
+    }
+    if (noCourse.length > 0) groups.push({ label: 'Tanpa Kelas', students: noCourse });
+    return groups;
+  })();
+
+  // Group remark options by category
+  const remarksByCategory = (() => {
+    const cats = {};
+    for (const r of remarkOptions) {
+      const cat = r.category || 'other';
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(r);
+    }
+    return cats;
+  })();
+
+  const CATEGORY_LABELS = {
+    success: 'Berhasil', aircraft: 'Aircraft (1.x)', weather: 'Weather (2.x)',
+    instructor: 'Instructor (3.x)', student: 'Student (4.x)',
+    notice: 'Notice (5.x)', support: 'Support (6.x)', other: 'Lainnya'
+  };
   // Summary stats
   const totalFlights = schedules.filter(s => s.student_name).length;
+
+  // Calculate duration display from block times
+  const calcDurationDisplay = (blockOff, blockOn) => {
+    if (!blockOff || !blockOn) return '';
+    try {
+      const [oh, om] = blockOff.split(':').map(Number);
+      const [nh, nm] = blockOn.split(':').map(Number);
+      let diff = (nh * 60 + nm) - (oh * 60 + om);
+      if (diff < 0) diff += 24 * 60;
+      const h = Math.floor(diff / 60);
+      const m = diff % 60;
+      return `${h}h${m > 0 ? m + 'm' : ''}`;
+    } catch { return ''; }
+  };
   const usedAircraft = new Set(schedules.filter(s => s.student_name).map(s => s.aircraft_id)).size;
 
   // Split periods into 3 sessions
@@ -187,10 +245,13 @@ export default function ScheduleBoard() {
               </Badge>
             )}
             {(data.block_off || data.block_on) && (
-              <div className="text-[10px] text-slate-500">{data.block_off} - {data.block_on}</div>
+              <div className="text-[10px] text-slate-500">
+                {data.block_off} - {data.block_on}
+                {data.duration_minutes > 0 && <span className="ml-1 font-medium text-emerald-600">({calcDurationDisplay(data.block_off, data.block_on)})</span>}
+              </div>
             )}
-            {data.remarks && data.remarks !== 'OK' && (
-              <div className="text-[10px] text-red-600 font-medium">{data.remarks}</div>
+            {data.remarks && (
+              <div className={`text-[10px] font-medium ${data.remarks === 'OK' ? 'text-emerald-600' : 'text-red-600'}`}>{data.remarks}</div>
             )}
           </div>
         ) : (
@@ -443,11 +504,19 @@ export default function ScheduleBoard() {
                 </div>
                 <div>
                   <Label className="text-xs">Student</Label>
-                  <Select value={cellForm.student_name} onValueChange={v => setCellForm({ ...cellForm, student_name: v })}>
+                  <Select value={cellForm.student_name} onValueChange={v => {
+                    const st = students.find(s => s.name === v);
+                    setCellForm({ ...cellForm, student_name: v, course_id: st?.course_id || cellForm.course_id });
+                  }}>
                     <SelectTrigger data-testid="cell-student-select" className="mt-1 text-sm"><SelectValue placeholder="Select Student" /></SelectTrigger>
-                    <SelectContent>
-                      {students.map(st => (
-                        <SelectItem key={st.id} value={st.name}>{st.name}{st.course ? ` (${st.course.name})` : ''}</SelectItem>
+                    <SelectContent className="max-h-[300px]">
+                      {studentsByCourse.map((group, gi) => (
+                        <SelectGroup key={gi}>
+                          <SelectLabel className="text-xs text-slate-500">{group.label}</SelectLabel>
+                          {group.students.map(st => (
+                            <SelectItem key={st.id} value={st.name}>{st.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
@@ -462,7 +531,7 @@ export default function ScheduleBoard() {
                 <div>
                   <Label className="text-xs">Course</Label>
                   <Select value={cellForm.course_id} onValueChange={v => setCellForm({ ...cellForm, course_id: v })}>
-                    <SelectTrigger data-testid="cell-course-select" className="mt-1 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger data-testid="cell-course-select" className="mt-1 text-sm"><SelectValue placeholder="Auto / Select" /></SelectTrigger>
                     <SelectContent>
                       {courses.map(c => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -481,10 +550,27 @@ export default function ScheduleBoard() {
                   <Input data-testid="cell-blockon-input" type="time" value={cellForm.block_on} onChange={e => setCellForm({ ...cellForm, block_on: e.target.value })} className="mt-1 text-sm" />
                 </div>
               </div>
+              {cellForm.block_off && cellForm.block_on && (
+                <div className="text-xs text-emerald-600 font-medium px-1">
+                  Durasi: {calcDurationDisplay(cellForm.block_off, cellForm.block_on)}
+                </div>
+              )}
               <div>
                 <Label className="text-xs">Remarks</Label>
-                <Input data-testid="cell-remarks-input" value={cellForm.remarks} onChange={e => setCellForm({ ...cellForm, remarks: e.target.value })}
-                  className="mt-1 text-sm" placeholder="OK, LOW CLOUD, etc." />
+                <Select value={cellForm.remarks} onValueChange={v => setCellForm({ ...cellForm, remarks: v })}>
+                  <SelectTrigger data-testid="cell-remarks-select" className="mt-1 text-sm"><SelectValue placeholder="Pilih Remarks" /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="__empty__">- Kosong -</SelectItem>
+                    {Object.entries(remarksByCategory).map(([cat, items]) => (
+                      <SelectGroup key={cat}>
+                        <SelectLabel className="text-xs text-slate-500">{CATEGORY_LABELS[cat] || cat}</SelectLabel>
+                        {items.map(r => (
+                          <SelectItem key={r.code} value={r.code}>{r.code} - {r.label}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-xs">Status</Label>

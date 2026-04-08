@@ -20,7 +20,7 @@ export default function Students() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ name: '', license_expiry: '', course_id: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', callsign: '', license_owned: '', course_id: '', medical_expiry: '', email: '', phone: '' });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -68,7 +68,11 @@ export default function Students() {
 
   const handleEdit = (student) => {
     setEditingId(student.id);
-    setFormData({ name: student.name, license_expiry: student.license_expiry, course_id: student.course_id || '', phone: student.phone || '' });
+    setFormData({
+      name: student.name || '', callsign: student.callsign || '', license_owned: student.license_owned || '',
+      course_id: student.course_id || '', medical_expiry: student.medical_expiry || '',
+      email: student.email || '', phone: student.phone || '',
+    });
     setIsDialogOpen(true);
   };
 
@@ -87,7 +91,7 @@ export default function Students() {
     }
   };
 
-  const resetForm = () => { setFormData({ name: '', license_expiry: '', course_id: '', phone: '' }); setEditingId(null); };
+  const resetForm = () => { setFormData({ name: '', callsign: '', license_owned: '', course_id: '', medical_expiry: '', email: '', phone: '' }); setEditingId(null); };
 
   const canEdit = user?.role === 'admin' || user?.role === 'instructor';
   const canDelete = user?.role === 'admin';
@@ -127,28 +131,46 @@ export default function Students() {
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader><DialogTitle>{editingId ? 'Edit Student' : 'Create New Student'}</DialogTitle></DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-                      <div>
-                        <Label>Name</Label>
-                        <Input data-testid="student-name-input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="mt-1" placeholder="Student name" />
+                    <form onSubmit={handleSubmit} className="space-y-3 mt-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Nama</Label>
+                          <Input data-testid="student-name-input" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required className="mt-1" placeholder="Nama siswa" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Callsign</Label>
+                          <Input data-testid="student-callsign-input" value={formData.callsign} onChange={e => setFormData({ ...formData, callsign: e.target.value })} className="mt-1" placeholder="e.g. STD-01" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">License Owned</Label>
+                          <Input data-testid="student-license-input" value={formData.license_owned} onChange={e => setFormData({ ...formData, license_owned: e.target.value })} className="mt-1" placeholder="SPL / PPL" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Course</Label>
+                          <Select value={formData.course_id} onValueChange={v => setFormData({ ...formData, course_id: v === 'none' ? '' : v })}>
+                            <SelectTrigger data-testid="student-course-select" className="mt-1"><SelectValue placeholder="Pilih kelas" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Tanpa kelas</SelectItem>
+                              {courses.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Medical Expiry</Label>
+                          <Input data-testid="student-medical-input" type="date" value={formData.medical_expiry} onChange={e => setFormData({ ...formData, medical_expiry: e.target.value })} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Email</Label>
+                          <Input data-testid="student-email-input" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="mt-1" placeholder="email@domain.com" />
+                        </div>
                       </div>
                       <div>
-                        <Label>License Expiry</Label>
-                        <Input data-testid="student-license-input" type="date" value={formData.license_expiry} onChange={e => setFormData({ ...formData, license_expiry: e.target.value })} required className="mt-1" />
-                      </div>
-                      <div>
-                        <Label>Course</Label>
-                        <Select value={formData.course_id} onValueChange={v => setFormData({ ...formData, course_id: v })}>
-                          <SelectTrigger data-testid="student-course-select" className="mt-1"><SelectValue placeholder="Select course" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No course</SelectItem>
-                            {courses.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Phone (WhatsApp)</Label>
-                        <Input data-testid="student-phone-input" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="mt-1" placeholder="628123456789" />
+                        <Label className="text-xs">Phone (WhatsApp)</Label>
+                        <Input data-testid="student-phone-input" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="mt-1" placeholder="628xxxxx" />
                       </div>
                       <div className="flex gap-3 pt-2">
                         <Button type="button" onClick={() => setIsDialogOpen(false)} className="flex-1 border border-slate-200 text-[#0B192C] hover:bg-slate-50 bg-white">Cancel</Button>
@@ -173,24 +195,24 @@ export default function Students() {
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Course</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">License Expiry</th>
-                    {(canEdit || canDelete) && <th className="px-6 py-3 text-right text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Actions</th>}
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Nama</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Course</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">License</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Medical Exp</th>
+                    {(canEdit || canDelete) && <th className="px-4 py-3 text-right text-xs font-semibold text-[#0B192C] uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
                   {students.length === 0 ? (
-                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No students found</td></tr>
+                    <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No students found</td></tr>
                   ) : students.map(student => (
                     <tr key={student.id} className="hover:bg-slate-50 transition-colors" data-testid="student-row">
-                      <td className="px-6 py-4 text-sm text-[#0B192C] font-medium">{student.name}</td>
-                      <td className="px-6 py-4">
-                        {student.course ? (
-                          <Badge className="bg-[#FFEDD5] text-[#C2410C]">{student.course.name}</Badge>
-                        ) : <span className="text-xs text-slate-400">-</span>}
+                      <td className="px-4 py-3 text-sm text-[#0B192C] font-medium">{student.name}</td>
+                      <td className="px-4 py-3">
+                        {student.course ? <Badge className="bg-[#FFEDD5] text-[#C2410C]">{student.course.name}</Badge> : <span className="text-xs text-slate-400">-</span>}
                       </td>
-                      <td className="px-6 py-4 text-sm text-[#0B192C]">{student.license_expiry}</td>
+                      <td className="px-4 py-3 text-sm text-[#0B192C]">{student.license_owned || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-[#0B192C]">{student.medical_expiry || '-'}</td>
                       {(canEdit || canDelete) && (
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
