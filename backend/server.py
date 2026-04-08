@@ -302,6 +302,7 @@ class ScheduleEntryCreate(BaseModel):
     period_number: int
     aircraft_id: str
     instructor_callsign: str = ""
+    student_callsign: str = ""
     student_name: str = ""
     exercise: str = ""
     block_off: str = ""
@@ -312,6 +313,7 @@ class ScheduleEntryCreate(BaseModel):
 
 class ScheduleEntryUpdate(BaseModel):
     instructor_callsign: Optional[str] = None
+    student_callsign: Optional[str] = None
     student_name: Optional[str] = None
     exercise: Optional[str] = None
     block_off: Optional[str] = None
@@ -609,10 +611,15 @@ async def create_schedule(data: ScheduleEntryCreate, u: dict = Depends(get_curre
     doc["id"] = make_id()
     doc["duration_minutes"] = calc_duration_minutes(doc.get("block_off",""), doc.get("block_on",""))
     doc["created_at"] = datetime.now(timezone.utc).isoformat()
+    # Auto-resolve student_name from callsign if not provided
+    if doc.get("student_callsign") and not doc.get("student_name"):
+        student = await db.students.find_one({"callsign": doc["student_callsign"]}, {"_id": 0})
+        if student:
+            doc["student_name"] = student.get("name", "")
     await db.schedule_entries.insert_one(doc)
     # Auto-update progress if remark is OK
-    if doc.get("remarks") == "OK" and doc.get("student_name") and doc.get("exercise"):
-        student = await db.students.find_one({"name": doc["student_name"]}, {"_id": 0})
+    if doc.get("remarks") == "OK" and doc.get("student_callsign") and doc.get("exercise"):
+        student = await db.students.find_one({"callsign": doc["student_callsign"]}, {"_id": 0})
         if student:
             existing = await db.student_progress.find_one({"student_id": student["id"], "exercise": doc["exercise"]})
             if not existing:
@@ -633,8 +640,8 @@ async def update_schedule(eid: str, data: ScheduleEntryUpdate, u: dict = Depends
     # Auto progress if remark changed to OK
     if update.get("remarks") == "OK":
         entry = await db.schedule_entries.find_one({"id": eid}, {"_id": 0})
-        if entry and entry.get("student_name") and entry.get("exercise"):
-            student = await db.students.find_one({"name": entry["student_name"]}, {"_id": 0})
+        if entry and entry.get("student_callsign") and entry.get("exercise"):
+            student = await db.students.find_one({"callsign": entry["student_callsign"]}, {"_id": 0})
             if student:
                 existing = await db.student_progress.find_one({"student_id": student["id"], "exercise": entry["exercise"]})
                 if not existing:
@@ -660,9 +667,9 @@ async def get_monthly_recap(month: str, u: dict = Depends(get_current_user)):
     # Student hours
     student_hours = {}
     for e in entries:
-        sn = e.get("student_name", "")
+        sc = e.get("student_callsign", "") or e.get("student_name", "")
         dur = e.get("duration_minutes", 0)
-        if sn and dur: student_hours[sn] = student_hours.get(sn, 0) + dur
+        if sc and dur: student_hours[sc] = student_hours.get(sc, 0) + dur
     # Aircraft hours
     aircraft_hours = {}
     for e in entries:
@@ -805,20 +812,30 @@ async def get_whatsapp_links(date: str, u: dict = Depends(get_current_user)):
     entries = await db.schedule_entries.find({"date": date}, {"_id": 0}).to_list(5000)
     if not entries: return {"links": [], "date": date}
     ac_map = {a["id"]: a.get("registration","") for a in await db.aircraft.find({}, {"_id": 0}).to_list(100)}
-    student_phones = {s["name"]: s.get("phone","") for s in await db.students.find({}, {"_id": 0}).to_list(1000)}
+    student_phones = {}
+    student_names = {}
+    for s in await db.students.find({}, {"_id": 0}).to_list(1000):
+        cs = s.get("callsign", "")
+        if cs:
+            student_phones[cs] = s.get("phone", "")
+            student_names[cs] = s.get("name", cs)
+        student_phones[s.get("name", "")] = s.get("phone", "")
     instructor_phones = {i["callsign"]: i.get("phone","") for i in await db.instructors.find({}, {"_id": 0}).to_list(1000)}
     ss, iis = {}, {}
     for e in entries:
-        sn, ic, ac_reg = e.get("student_name",""), e.get("instructor_callsign",""), ac_map.get(e.get("aircraft_id",""),"")
+        sc = e.get("student_callsign", "") or e.get("student_name", "")
+        sn_full = e.get("student_name", "") or student_names.get(sc, sc)
+        ic, ac_reg = e.get("instructor_callsign",""), ac_map.get(e.get("aircraft_id",""),"")
         line = f"- Period {e.get('period_number','')}: {ac_reg} | EXC: {e.get('exercise','')}"
-        if sn: ss.setdefault(sn, []).append(f"{line} | FI: {ic}")
-        if ic: iis.setdefault(ic, []).append(f"{line} | Student: {sn}")
+        if sc: ss.setdefault(sc, {"flights": [], "full_name": sn_full})["flights"].append(f"{line} | FI: {ic}")
+        if ic: iis.setdefault(ic, []).append(f"{line} | Student: {sc}")
     links = []
-    for sn, flights in ss.items():
-        phone = student_phones.get(sn, "")
-        msg = f"*Flight Schedule - {date}*\nHi {sn},\n\n" + "\n".join(flights)
+    for sc, info in ss.items():
+        phone = student_phones.get(sc, "")
+        display = f"{sc} ({info['full_name']})" if info['full_name'] and info['full_name'] != sc else sc
+        msg = f"*Flight Schedule - {date}*\nHi {display},\n\n" + "\n".join(info["flights"])
         wa = f"https://wa.me/{phone}?text={msg.replace(' ','%20').replace(chr(10),'%0A')}" if phone else ""
-        links.append({"type": "student", "name": sn, "phone": phone, "message": msg, "wa_link": wa})
+        links.append({"type": "student", "name": display, "phone": phone, "message": msg, "wa_link": wa})
     for ic, flights in iis.items():
         phone = instructor_phones.get(ic, "")
         msg = f"*Flight Schedule - {date}*\nHi {ic},\n\n" + "\n".join(flights)
@@ -892,8 +909,8 @@ async def export_schedules(date: Optional[str] = None, u: dict = Depends(get_cur
     q = {"date": date} if date else {}
     entries = await db.schedule_entries.find(q, {"_id": 0}).to_list(5000)
     wb = Workbook(); ws = wb.active; ws.title = "Schedules"
-    ws.append(["Date","Period","Aircraft","Instructor","Student","Exercise","Block Off","Block On","Duration(min)","Remarks","Status"])
-    for e in entries: ws.append([e.get("date",""),e.get("period_number",""),e.get("aircraft_id",""),e.get("instructor_callsign",""),e.get("student_name",""),e.get("exercise",""),e.get("block_off",""),e.get("block_on",""),e.get("duration_minutes",0),e.get("remarks",""),e.get("status","")])
+    ws.append(["Date","Period","Aircraft","Instructor","Student Callsign","Student Name","Exercise","Block Off","Block On","Duration(min)","Remarks","Status"])
+    for e in entries: ws.append([e.get("date",""),e.get("period_number",""),e.get("aircraft_id",""),e.get("instructor_callsign",""),e.get("student_callsign",""),e.get("student_name",""),e.get("exercise",""),e.get("block_off",""),e.get("block_on",""),e.get("duration_minutes",0),e.get("remarks",""),e.get("status","")])
     out = io.BytesIO(); wb.save(out); out.seek(0)
     return StreamingResponse(out, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=schedules.xlsx"})
 

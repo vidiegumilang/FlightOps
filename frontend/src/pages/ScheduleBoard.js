@@ -42,7 +42,7 @@ export default function ScheduleBoard() {
   const [cellDialog, setCellDialog] = useState(null);
   const [waDialog, setWaDialog] = useState(null);
   const [cellForm, setCellForm] = useState({
-    instructor_callsign: '', student_name: '', exercise: '',
+    instructor_callsign: '', student_callsign: '', student_name: '', exercise: '',
     block_off: '', block_on: '', remarks: '', course_id: '', status: 'scheduled'
   });
 
@@ -91,6 +91,7 @@ export default function ScheduleBoard() {
     setCellDialog({ aircraft: ac, period, existing });
     setCellForm({
       instructor_callsign: existing?.instructor_callsign || '',
+      student_callsign: existing?.student_callsign || '',
       student_name: existing?.student_name || '',
       exercise: existing?.exercise || '',
       block_off: existing?.block_off || '',
@@ -160,19 +161,20 @@ export default function ScheduleBoard() {
     }
   };
 
-  // Group students by course for dropdown
+  // Group students by course for dropdown - use callsign as value
   const studentsByCourse = (() => {
     const courseMap = {};
     const noCourse = [];
     const courseNames = {};
     for (const c of courses) courseNames[c.id] = c.name;
     for (const s of students) {
-      if (!s.name) continue;
+      if (!s.name && !s.callsign) continue;
+      const item = { ...s, displayLabel: s.callsign ? `${s.callsign} (${s.name})` : s.name, selectValue: s.callsign || s.name };
       if (s.course_id && courseNames[s.course_id]) {
         if (!courseMap[s.course_id]) courseMap[s.course_id] = [];
-        courseMap[s.course_id].push(s);
+        courseMap[s.course_id].push(item);
       } else {
-        noCourse.push(s);
+        noCourse.push(item);
       }
     }
     const groups = [];
@@ -200,7 +202,7 @@ export default function ScheduleBoard() {
     notice: 'Notice (5.x)', support: 'Support (6.x)', other: 'Lainnya'
   };
   // Summary stats
-  const totalFlights = schedules.filter(s => s.student_name).length;
+  const totalFlights = schedules.filter(s => s.student_callsign || s.student_name).length;
 
   // Calculate duration display from block times
   const calcDurationDisplay = (blockOff, blockOn) => {
@@ -215,7 +217,7 @@ export default function ScheduleBoard() {
       return `${h}h${m > 0 ? m + 'm' : ''}`;
     } catch { return ''; }
   };
-  const usedAircraft = new Set(schedules.filter(s => s.student_name).map(s => s.aircraft_id)).size;
+  const usedAircraft = new Set(schedules.filter(s => s.student_callsign || s.student_name).map(s => s.aircraft_id)).size;
 
   // Split periods into 3 sessions
   const morningPeriods = periods.filter(p => p.number >= 1 && p.number <= 4);   // 1st - REST
@@ -232,13 +234,13 @@ export default function ScheduleBoard() {
         onClick={() => openCellDialog(ac, period)}
         data-testid={`cell-${ac.registration}-${period.number}`}
         className="border border-slate-200 px-1.5 py-1 text-xs cursor-pointer hover:bg-[#F4A261]/10 transition-colors min-w-[110px] max-w-[130px] relative"
-        style={data?.student_name ? { backgroundColor: colors?.bg || '#f1f5f9' } : {}}>
-        {data?.student_name ? (
+        style={(data?.student_callsign || data?.student_name) ? { backgroundColor: colors?.bg || '#f1f5f9' } : {}}>
+        {(data?.student_callsign || data?.student_name) ? (
           <div className="space-y-0.5">
             <div className="flex items-center gap-1">
               <span className="font-bold" style={{ color: colors?.text || '#0B192C' }}>{data.instructor_callsign || '-'}</span>
             </div>
-            <div className="font-medium text-[#0B192C] truncate">{data.student_name}</div>
+            <div className="font-medium text-[#0B192C] truncate">{data.student_callsign || data.student_name}</div>
             {data.exercise && (
               <Badge className="text-[10px] px-1 py-0" style={{ backgroundColor: colors?.bg, color: colors?.text, border: `1px solid ${colors?.text}30` }}>
                 {data.exercise}
@@ -503,18 +505,18 @@ export default function ScheduleBoard() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Student</Label>
-                  <Select value={cellForm.student_name} onValueChange={v => {
-                    const st = students.find(s => s.name === v);
-                    setCellForm({ ...cellForm, student_name: v, course_id: st?.course_id || cellForm.course_id });
+                  <Label className="text-xs">Student (Callsign)</Label>
+                  <Select value={cellForm.student_callsign} onValueChange={v => {
+                    const st = students.find(s => (s.callsign || s.name) === v);
+                    setCellForm({ ...cellForm, student_callsign: v, student_name: st?.name || '', course_id: st?.course_id || cellForm.course_id });
                   }}>
-                    <SelectTrigger data-testid="cell-student-select" className="mt-1 text-sm"><SelectValue placeholder="Select Student" /></SelectTrigger>
+                    <SelectTrigger data-testid="cell-student-select" className="mt-1 text-sm"><SelectValue placeholder="Pilih Siswa" /></SelectTrigger>
                     <SelectContent className="max-h-[300px]">
                       {studentsByCourse.map((group, gi) => (
                         <SelectGroup key={gi}>
                           <SelectLabel className="text-xs text-slate-500">{group.label}</SelectLabel>
                           {group.students.map(st => (
-                            <SelectItem key={st.id} value={st.name}>{st.name}</SelectItem>
+                            <SelectItem key={st.id} value={st.selectValue}>{st.displayLabel}</SelectItem>
                           ))}
                         </SelectGroup>
                       ))}
